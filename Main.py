@@ -1,4 +1,3 @@
-#Importation des modules nécessaires
 import os
 from pyqtgraph.Qt import QtGui, QtCore
 import pyqtgraph as pg
@@ -8,13 +7,12 @@ import time
 import numpy as np
 import threading
 
-#Importation des classes
 import CAcquisition
 import CBDD
-#######################################
-# ATTENTION AUX INDEX DU TABLEAU DATA #
-#######################################
-class Graph():
+
+
+
+class DynamicPlotter():
 
     def __init__(self, sampleinterval=0.1, timewindow=20., size=(1100,650), dev ='dev1'):
         # Data stuff
@@ -63,14 +61,13 @@ class Graph():
         icon.addPixmap(QtGui.QPixmap("icone.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.app.setWindowIcon(icon)
 
-        #Configuration PyQtGraph
+        #PyQtGraph
         self.plt = pg.plot(title='Simulateur 2018')
         self.plt.resize(*size)
         self.plt.showGrid(x=True, y=True)
-        self.plt.setLabel('left', 'Amplitude', 'V')
-        self.plt.setLabel('bottom', 'Temps', 's')
+        self.plt.setLabel('left', 'amplitude', 'V')
+        self.plt.setLabel('bottom', 'time', 's')
 
-        #Couleurs des courbes
         self.curve = self.plt.plot(self.x, self.y, pen=(255,0,0))
         self.curve1 = self.plt.plot(self.x1, self.y1, pen=(0,255,0))
         self.curve2 = self.plt.plot(self.x2, self.y2, pen=(0,0,255))
@@ -78,46 +75,12 @@ class Graph():
         self.curve4 = self.plt.plot(self.x4, self.y4, pen=(255,0,255))
         self.curve5 = self.plt.plot(self.x5, self.y5, pen=(255,255,0))
 
-        #Lancement de la fonction principale en parralèlle
-        threading.Timer(0, self.main).start()
-        threading.Timer(0, self.getdata).start()
+        # QTimer
+##        self.timer = QtCore.QTimer()
+##        self.timer.timeout.connect(self.updateplot)
+##        self.timer.start(self._interval)
 
-
-
-    def main(self):
-        try:
-            threading.Timer(0.1, self.main).start()
-
-            #Récupération des données
-
-
-            #Affichage des données dans la console
-            threading.Timer(self.intervalle, self.printconsole, [self.data]).start()
-
-            #Actualisation du graphique
-            threading.Timer(0.1, self.updateplot, [self.data]).start()
-            #self.updateplot(self.data)
-            #Ecriture des données dans la BDD
-            threading.Timer(self.intervalle, self.writeBDD, [self.data]).start()
-
-
-        except:
-            print("Erreur main")
-
-    def printconsole(self, data):
-        try:
-            os.system("cls")
-
-            print("Device : "+str(self.device)+" | Intervalle : "+str(self.intervalle)+"s")
-            print(round(self.i*self.intervalle, 2))
-            print("Bleu clair - Roulis Consigne : " + str(data[3]))
-            print("Bleu - Roulis Mesure : " + str(data[2]))
-            print("Violet - Tangage Consigne : " + str(data[4]))
-            print("Vert - Tangage Mesure : " + str(data[1]))
-            print("Rouge - Roulis Nouveau : " + str(data[0]))
-            print("Jaune - Tangage Nouveau : " + str(data[5]))
-        except:
-            print("Erreur affichage console")
+        threading.Timer(self.intervalle, self.main).start()
 
     def writeBDD(self, data):
         try:
@@ -128,16 +91,41 @@ class Graph():
         except:
             print("Erreur écriture dans la base de données")
 
+    def printconsole(self, data):
+        try:
+            os.system("cls")
 
+            print("Device : "+str(self.device)+"| Intervalle : "+str(self.intervalle)+"s")
+            print(round(self.i*self.intervalle, 2))
+            print("Bleu clair - Roulis Consigne : " + str(data[3]))
+            print("Bleu - Roulis Mesure : " + str(data[2]))
+            print("Violet - Tangage Consigne : " + str(data[4]))
+            print("Vert - Tangage Mesure : " + str(data[1]))
+            print("Rouge - Roulis Nouveau : " + str(data[0]))
+            print("Jaune - Tangage Nouveau : " + str(data[5]))
+        except:
+            print("Erreur affichage console")
 
     def getdata(self):
         try:
-            threading.Timer(self.intervalle, self.getdata).start()
-            self.data = self.Acquisition.startAcquisition(self.device)
-            self.i +=1
+            data=self.Acquisition.startAcquisition(self.device)
         except:
             print("Erreur acquisition")
 
+        return data
+
+
+    def main(self):
+        try:
+            threading.Timer(self.intervalle, self.main).start()
+            data = self.getdata()
+
+            self.printconsole(data)
+            self.writeBDD(data)
+            self.updateplot(data)
+            self.i +=1
+        except:
+            print("Erreur main")
 
     def updateplot(self, data):
 
@@ -180,6 +168,6 @@ if __name__ == '__main__':
     os.system("cls")
 
 
-    m = Graph(sampleinterval=float(intervalle), timewindow=20.0, dev=device)
+    m = DynamicPlotter(sampleinterval=float(intervalle), timewindow=20.0, dev=device)
 
 m.run()
