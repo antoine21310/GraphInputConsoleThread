@@ -1,3 +1,4 @@
+#Importation des modules nécessaires
 import os
 from pyqtgraph.Qt import QtGui, QtCore
 import pyqtgraph as pg
@@ -7,12 +8,13 @@ import time
 import numpy as np
 import threading
 
+#Importation des classes
 import CAcquisition
 import CBDD
-
-
-
-class DynamicPlotter():
+#######################################
+# ATTENTION AUX INDEX DU TABLEAU DATA #
+#######################################
+class Graph():
 
     def __init__(self, sampleinterval=0.1, timewindow=20., size=(1100,650), dev ='dev1'):
         # Data stuff
@@ -61,13 +63,14 @@ class DynamicPlotter():
         icon.addPixmap(QtGui.QPixmap("icone.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.app.setWindowIcon(icon)
 
-        #PyQtGraph
+        #Configuration PyQtGraph
         self.plt = pg.plot(title='Simulateur 2018')
         self.plt.resize(*size)
         self.plt.showGrid(x=True, y=True)
-        self.plt.setLabel('left', 'amplitude', 'V')
-        self.plt.setLabel('bottom', 'time', 's')
+        self.plt.setLabel('left', 'Amplitude', 'V')
+        self.plt.setLabel('bottom', 'Temps', 's')
 
+        #Couleurs des courbes
         self.curve = self.plt.plot(self.x, self.y, pen=(255,0,0))
         self.curve1 = self.plt.plot(self.x1, self.y1, pen=(0,255,0))
         self.curve2 = self.plt.plot(self.x2, self.y2, pen=(0,0,255))
@@ -75,27 +78,37 @@ class DynamicPlotter():
         self.curve4 = self.plt.plot(self.x4, self.y4, pen=(255,0,255))
         self.curve5 = self.plt.plot(self.x5, self.y5, pen=(255,255,0))
 
-        # QTimer
-##        self.timer = QtCore.QTimer()
-##        self.timer.timeout.connect(self.updateplot)
-##        self.timer.start(self._interval)
+        #Lancement de la fonction principale en parralèlle
+        threading.Timer(0, self.main).start()
+        threading.Timer(0, self.getdata).start()
 
-        threading.Timer(self.intervalle, self.main).start()
 
-    def writeBDD(self, data):
+
+    def main(self):
         try:
+            threading.Timer(0.1, self.main).start()
 
-            for k in range(6):
-                donnees = (float(round(self.i*self.intervalle,3)), data[k], k+1)
-                self.bdd.WriteBDD(donnees)
+            #Récupération des données
+
+
+            #Affichage des données dans la console
+            threading.Timer(self.intervalle, self.printconsole, [self.data]).start()
+
+            #Actualisation du graphique
+            threading.Timer(0.1, self.updateplot, [self.data]).start()
+            #self.updateplot(self.data)
+            #Ecriture des données dans la BDD
+            threading.Timer(self.intervalle, self.writeBDD, [self.data]).start()
+
+
         except:
-            print("Erreur écriture dans la base de données")
+            print("Erreur main")
 
     def printconsole(self, data):
         try:
             os.system("cls")
 
-            print("Device : "+str(self.device)+"| Intervalle : "+str(self.intervalle)+"s")
+            print("Device : "+str(self.device)+" | Intervalle : "+str(self.intervalle)+"s")
             print(round(self.i*self.intervalle, 2))
             print("Bleu clair - Roulis Consigne : " + str(data[3]))
             print("Bleu - Roulis Mesure : " + str(data[2]))
@@ -106,26 +119,25 @@ class DynamicPlotter():
         except:
             print("Erreur affichage console")
 
+    def writeBDD(self, data):
+        try:
+
+            for k in range(6):
+                donnees = (float(round(self.i*self.intervalle,3)), data[k], k+1)
+                self.bdd.WriteBDD(donnees)
+        except:
+            print("Erreur écriture dans la base de données")
+
+
+
     def getdata(self):
         try:
-            data=self.Acquisition.startAcquisition(self.device)
+            threading.Timer(self.intervalle, self.getdata).start()
+            self.data = self.Acquisition.startAcquisition(self.device)
+            self.i +=1
         except:
             print("Erreur acquisition")
 
-        return data
-
-
-    def main(self):
-        try:
-            threading.Timer(self.intervalle, self.main).start()
-            data = self.getdata()
-
-            self.printconsole(data)
-            self.writeBDD(data)
-            self.updateplot(data)
-            self.i +=1
-        except:
-            print("Erreur main")
 
     def updateplot(self, data):
 
@@ -168,6 +180,6 @@ if __name__ == '__main__':
     os.system("cls")
 
 
-    m = DynamicPlotter(sampleinterval=float(intervalle), timewindow=20.0, dev=device)
+    m = Graph(sampleinterval=float(intervalle), timewindow=20.0, dev=device)
 
 m.run()
